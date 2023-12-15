@@ -534,3 +534,214 @@ birthday:  undefined
 birthday year:  undefined
 ```
 ### The never type
+
+# Generics
+See https://www.youtube.com/watch?v=t0qQSujSslQ
+
+Examples of generic functonallity without generics
+
+Example 1: simple example to illustrate simular functionality for arrays of differt type
+
+```typescript
+const a1: Array<string> = [ 'foo', 'bar', 'baz'];
+const a2: Array<number> = [1,2,3];
+
+const x = a1.pop();
+const y = a2.pop();
+
+const p1 = Promise.resolve("hello!");
+const p2 = Promise.resolve(3.14);
+
+(async() => {
+    const x = await p1;
+    const y = await p2;
+
+    console.log('x: ', x);
+    console.log('y: ', y);
+})();
+```
+Result
+```
+x:  hello!
+y:  3.14
+```
+
+Example 2: example of different type of jobs without generics but using any type
+
+```typescript
+//
+// Run jobs without generics
+//
+// No autocomplete support on job since this is of type any
+//
+
+type JobRun = {
+    job: any,
+    state: 'queued' | 'running'|'completed',
+    onComplete: (cb: (job: any) => void) => void
+};
+
+type SendEmailJob = {
+    recipientEmail: string,
+    subject: string
+};
+
+function enqueueJob(job: any): JobRun {
+    // queue logic
+    return {
+        job,
+        state: 'queued',
+        onComplete: (cb: (job: any) => void) => cb(job)
+    };
+};
+
+const j: SendEmailJob = {
+    recipientEmail: 'jane@doe.com',
+    subject: 'hi there'
+};
+
+const run = enqueueJob(j);
+
+run.onComplete((job) => {
+    job
+});
+```
+Example 3: example of different type of jobs with generics
+
+```typescript
+//
+// Run jobs with generics
+//
+// Autocomplete support on job since this is of a generic type
+//
+
+type JobRun<J> = {
+    job: J,
+    state: 'queued' | 'running'|'completed',
+    onComplete: (cb: (job: J) => void) => void
+};
+
+type SendEmailJob = {
+    recipientEmail: string,
+    subject: string
+};
+
+type PostCardJob = {
+    address: string,
+    poststampValue: number,
+    expectedDeliveryDays: number
+};
+
+function enqueueJob<T>(job: T): JobRun<T> {
+    // queue logic
+    return {
+        job,
+        state: 'queued',
+        onComplete: (cb: (job: T) => void) => cb(job)
+    };
+};
+
+const j: SendEmailJob = {
+    recipientEmail: 'jane@doe.com',
+    subject: 'hi there'
+};
+
+const run1 = enqueueJob(j);
+
+run1.onComplete((job) => {
+    console.log('job completed, recipientEmail: ', job.recipientEmail);
+});
+
+const p: PostCardJob = {
+    address: 'Laan van Westenenk 701 Apeldoorn',
+    poststampValue: 1,
+    expectedDeliveryDays: 3
+};
+
+const run2 = enqueueJob(p);
+run2.onComplete((job) => {
+    console.log('job completed, address:', job.address);
+});
+```
+Result
+```
+job completed, recipientEmail:  jane@doe.com
+job completed, address: Laan van Westenenk 701 Apeldoorn
+```
+
+Example 4: example of different type of jobs with generics and improved type checking for each job
+
+```typescript
+//
+// Run jobs with generics
+//
+// Autocomplete support on job since this is of a generic type
+//
+type Job = {
+    name: string,
+    start: () => void,
+    state: 'incomplete' | 'success' | 'failure'
+};
+
+type JobRun<J extends Job> = {
+    job: J,
+    state: 'queued' | 'running' | 'completed',
+    onComplete: (cb: (job: J) => void) => void
+};
+
+type SendEmailJob = Job & {
+    recipientEmail: string,
+    subject: string
+};
+
+type PostCardJob = Job & {
+    address: string,
+    poststampValue: number,
+    expectedDeliveryDays: number
+};
+
+function enqueueJob<T extends Job>(job: T): JobRun<T> {
+    // queue logic
+    job.start();
+    return {
+        job,
+        state: 'queued',
+        onComplete: (cb: (job: T) => void) => cb(job)
+    };
+};
+
+const j: SendEmailJob = {
+    recipientEmail: 'jane@doe.com',
+    subject: 'hi there',
+    name: 'send-email',
+    start: () => null,
+    state: 'incomplete' 
+};
+
+const run1 = enqueueJob(j);
+
+run1.onComplete((job) => {
+    console.log('job completed ', job.name, ' recipientEmail: ', job.recipientEmail);
+});
+
+const p: PostCardJob = {
+    address: 'Laan van Westenenk 701 Apeldoorn',
+    poststampValue: 1,
+    expectedDeliveryDays: 3,
+    name: 'send-postcard',
+    start: () => null,
+    state: 'incomplete' 
+};
+
+const run2 = enqueueJob(p);
+run2.onComplete((job) => {
+    console.log('job completed ', job.name, ' address:', job.address);
+});
+
+// const run3 = enqueueJob("do it"); now fails because "do it" is a string and does not implement Job requirements
+```
+Result
+```
+job completed  send-email  recipientEmail:  jane@doe.com
+job completed  send-postcard  address: Laan van Westenenk 701 Apeldoorn
+```
